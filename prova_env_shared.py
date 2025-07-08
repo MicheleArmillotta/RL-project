@@ -22,8 +22,8 @@ class rewards:
         p_play = prev_state["overcooked_state"].players[agent_idx]
         n_play = next_state["overcooked_state"].players[agent_idx]
 
-        p_state = prev_state["overcooked_state"]
-        n_state = next_state["overcooked_state"]
+        #p_state = prev_state["overcooked_state"]
+        #n_state = next_state["overcooked_state"]
 
         #reward shaping
 
@@ -34,41 +34,41 @@ class rewards:
         # delivering the soup (default) = 20
         # idle = 0
 
-        if not p_play.has_object() and n_play.has_object():
-            if n_play.get_object().name == "onion":
-                reward += 0.05
+        #if not p_play.has_object() and n_play.has_object():
+        #    if n_play.get_object().name == "onion":
+        #        reward += 0.05
                 #print("DEBUG = > PRESO UNA CIPOLLA ALLO STEP: ", n_steps)
 
-        if not p_play.has_object() and n_play.has_object():
-            if n_play.get_object().name == "dish":
-                reward += 0.05
+        #if not p_play.has_object() and n_play.has_object():
+        #    if n_play.get_object().name == "dish":
+        #        reward += 0.05
 
-        def check_soup_taken_simple(prev_state, curr_state):
-            """
-            Versione semplice: se una zuppa pronta scompare, è stata presa
-            """
-            prev_soups = {pos: obj for pos, obj in prev_state.objects.items() if obj.name == "soup"}
-            curr_soups = {pos: obj for pos, obj in curr_state.objects.items() if obj.name == "soup"}
+        #def check_soup_taken_simple(prev_state, curr_state):
+        #    """
+        #    Versione semplice: se una zuppa pronta scompare, è stata presa
+        #    """
+        #    prev_soups = {pos: obj for pos, obj in prev_state.objects.items() if obj.name == "soup"}
+        #    curr_soups = {pos: obj for pos, obj in curr_state.objects.items() if obj.name == "soup"}
             
-            # Controlla ogni posizione che aveva una zuppa nello stato precedente
-            for pos in prev_soups:
-                prev_soup = prev_soups[pos]
+        #    # Controlla ogni posizione che aveva una zuppa nello stato precedente
+        #    for pos in prev_soups:
+        #        prev_soup = prev_soups[pos]
                 
                 # Se la zuppa era pronta e ora non c'è più nulla in quella posizione
-                if (hasattr(prev_soup, '_cooking_tick') and 
-                    prev_soup._cooking_tick >= 20 and 
-                    pos not in curr_soups):
+        #        if (hasattr(prev_soup, '_cooking_tick') and 
+        #            prev_soup._cooking_tick >= 20 and 
+        #            pos not in curr_soups):
                     
-                    print(f"DEBUG => Zuppa pronta scomparsa dalla posizione {pos} - PRESA!")
-                    return True
+        #            print(f"DEBUG => Zuppa pronta scomparsa dalla posizione {pos} - PRESA!")
+        #            return True
             
-            return False
+        #    return False
 
         # Utilizzo:
-        result = check_soup_taken_simple(p_state, n_state)
-        if result:
-            reward += 0.5
-            print(f"DEBUG => ZUPPA PRESA CONFERMATA ALLO STEP: {n_steps}")
+        #result = check_soup_taken_simple(p_state, n_state)
+        #if result:
+        #    reward += 0.5
+        #    print(f"DEBUG => ZUPPA PRESA CONFERMATA ALLO STEP: {n_steps}")
 
         
         # Idle penalty
@@ -80,41 +80,41 @@ class rewards:
 
         #soup is ready
 
-        def soup_ready(state):
-            flag = 0
-            for state_obj in state.objects.values():
+        #def soup_ready(state):
+        #    flag = 0
+        #    for state_obj in state.objects.values():
                 #for obj in state_obj:
                     #print("DEBUG => oggetti ->", state_obj.name)
-                    if isinstance(state_obj, SoupState):
-                        if state_obj.is_ready:
-                            flag += 1
+        #            if isinstance(state_obj, SoupState):
+        #                if state_obj.is_ready:
+        #                    flag += 1
 
-            return flag
+        #    return flag
     
 
-        p_flag = soup_ready(p_state)
-        n_flag = soup_ready(n_state)
+        #p_flag = soup_ready(p_state)
+        #n_flag = soup_ready(n_state)
 
-        if n_flag > p_flag:
-            reward += 0.5
-            print("DEBUG = > ZUPPA PRONTA")
+        #if n_flag > p_flag:
+        #    reward += 0.5
+        #    print("DEBUG = > ZUPPA PRONTA")
 
-        def plus_one_onion(state):
-            ingr = 0
-            for state_obj in state.objects.values():
+        #def plus_one_onion(state):
+        #    ingr = 0
+        #    for state_obj in state.objects.values():
                #for obj in state_obj:
-                    if isinstance(state_obj, SoupState):
-                        ingr += len(state_obj.ingredients)
+        #            if isinstance(state_obj, SoupState):
+        #                ingr += len(state_obj.ingredients)
 
 
-            return ingr
+         #   return ingr
         
-        p_ingr = plus_one_onion(p_state)
-        n_ingr = plus_one_onion(n_state)
+        #p_ingr = plus_one_onion(p_state)
+        #n_ingr = plus_one_onion(n_state)
 
 
-        if n_ingr > p_ingr:
-            reward += 0.2
+        #if n_ingr > p_ingr:
+        #    reward += 0.2
             #print("DEBUG = > CIPOLLA INSERITA NELLA ZUPPA ALLO STEP: ", n_steps)
 
 
@@ -143,7 +143,7 @@ if __name__ == '__main__':
     batch_size = 128
     n_epochs = 10
     alpha = 2e-4
-    shared_train = critic_Train(env.observation_space.shape,shared_critic,n_epochs,learning_rate=alpha,gamma = 0.99, GAElambda = 0.95, critic_smoother=0.5)
+    shared_train = critic_Train(env.observation_space.shape,shared_critic,n_epochs,learning_rate=alpha,gamma = 0.99, GAElambda = 0.95, critic_smoother=0.5, eps = 0.2)
     agent0 = Agent(shared_critic,action_dim=env.action_space.n, batch_size=batch_size, 
                     learning_rate=alpha, epochs=n_epochs, 
                     input_dim=env.observation_space.shape, gamma = 0.99, GAElambda=0.95, epsilon=0.2,entropy_coeff=0.01,agent_name="agent0")

@@ -106,14 +106,16 @@ class criticNet(tf.keras.Model):
         return self.logits(x)
     
 class critic_Train:
-    def __init__(self,input_dim,criticNet,epochs,learning_rate,gamma,GAElambda,critic_smoother):
+    def __init__(self,input_dim,criticNet,epochs,learning_rate,gamma,GAElambda,critic_smoother,eps):
         self.criticNet = criticNet
         self.epochs = epochs
+        
         #self.T = T
         self.input_dim = input_dim
         self.gamma = gamma
         self.GAElambda = GAElambda
         self.critic_smoother = critic_smoother
+        self.eps = eps
         self.criticOptimizer = tf.keras.optimizers.Adam(learning_rate = learning_rate)
         self.model_dir = f"saved_models/critic"
         os.makedirs(self.model_dir, exist_ok=True)
@@ -203,7 +205,8 @@ class critic_Train:
                 with tf.GradientTape(persistent=True) as tape:
                     critic_value = self.criticNet(t_b_states)
                     returns = tf.gather(shared_advantages, batch) + t_b_S_values # critic_value è V(s) con la nuova rete
-                    critic_loss = self.critic_smoother * tf.reduce_mean(tf.square(returns - critic_value))
+                    returns_clipped = tf.gather(shared_advantages, batch)  + tf.clip_by_value(critic_value - tf.gather(t_b_S_values, batch), -self.eps, self.eps)
+                    critic_loss = self.critic_smoother * tf.reduce_mean(tf.maximum(tf.square(returns - critic_value),tf.square(returns_clipped - critic_value)))
                 critic_grads = tape.gradient(critic_loss, self.criticNet.trainable_variables)
                 self.criticOptimizer.apply_gradients(zip(critic_grads, self.criticNet.trainable_variables))
                 del tape
@@ -436,7 +439,7 @@ class Agent:
             
                 print(f"Policy loss: {avg_policy_loss:.4f}, "
                   f"Entropy: {avg_entropy:.4f}, "
-                  f"Clip fraction: {avg_clip_fraction:.4f}")
+                  )
             
         self.clean()    
 

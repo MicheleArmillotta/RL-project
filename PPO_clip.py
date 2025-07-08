@@ -101,7 +101,7 @@ class criticNet(tf.keras.Model):
 
 
 class Agent:
-    def __init__(self, batch_size, input_dim, action_dim, epochs, gamma, GAElambda, epsilon, learning_rate,entropy_coeff, critic_smoother, agent_name = "Agent"):
+    def __init__(self, batch_size, input_dim, action_dim, epochs, gamma, GAElambda, epsilon, learning_rate,entropy_coeff, critic_smoother, eps ,agent_name = "Agent"):
         self.batch_size = batch_size
         self.input_dim = input_dim
         self.action_dim = action_dim
@@ -111,6 +111,7 @@ class Agent:
         self.GAElambda = GAElambda
         self.epsilon = epsilon
         self.critic_smoother = critic_smoother
+        self.eps = eps
         #self.big_T = big_T
         self.entropy_coeff = entropy_coeff
         self.memory = Memory(self.batch_size)
@@ -256,9 +257,10 @@ class Agent:
 
     def train(self):
         states,actions,rewards, S_values,old_probs,dones,nextS= self.memory.return_np_arrays()
+        #rewards = (rewards - np.mean(rewards)) / (np.std(rewards) + 1e-8)
         GAE_adv = self.use_computeAdv(len(rewards), S_values, rewards, dones, nextS) #tensore con GAE dentro
-        #GAE_adv = (GAE_adv - tf.reduce_mean(GAE_adv)) / (tf.math.reduce_std(GAE_adv) + 1e-8) #normalizziamo o potrebbe diventare troppo grande
-
+        #GAE_adv = GAE_adv  / (tf.math.reduce_std(GAE_adv) + 1e-8) #normalizziamo o potrebbe diventare troppo grande
+        #- tf.reduce_mean(GAE_adv))
         for i in range(self.epochs):
             #devo calcolare advantage, actor loss, critic loss e rapporto
             #iniziamo con l'advantage
@@ -311,8 +313,12 @@ class Agent:
                     policy_loss = -tf.reduce_mean(tf.minimum(adv_prob_ratio, adv_clipped_ratio)) #per gradient descent
                     actor_loss = policy_loss - (self.entropy_coeff * entropy)
                     # Critic loss
+                    
+                    
                     returns = tf.gather(GAE_adv, batch) + t_b_S_values # critic_value è V(s) con la nuova rete
-                    critic_loss = self.critic_smoother * tf.reduce_mean(tf.square(returns - critic_value))
+                    returns_clipped = tf.gather(GAE_adv, batch)  + tf.clip_by_value(critic_value - tf.gather(t_b_S_values, batch), -self.eps, self.eps)
+                    critic_loss = self.critic_smoother * tf.reduce_mean(tf.maximum(tf.square(returns - critic_value),tf.square(returns_clipped - critic_value)))
+                    
                 #print(f"[Ratio] mean={tf.reduce_mean(prob_ratio):.4f}, max={tf.reduce_max(prob_ratio):.4f}, min={tf.reduce_min(prob_ratio):.4f}")
 
                 actor_grads = tape.gradient(actor_loss, self.actorNet.trainable_variables)

@@ -1,148 +1,30 @@
 import numpy as np
-import random
 from overcooked_ai_py.mdp.overcooked_env import OvercookedEnv, Overcooked
 from overcooked_ai_py.mdp.overcooked_mdp import OvercookedGridworld
 from overcooked_ai_py.visualization.state_visualizer import StateVisualizer
-import time
 from PPO_clip_shared import Agent
 from PPO_clip_shared import criticNet, critic_Train
-import os
-from overcooked_ai_py.mdp.overcooked_mdp import SoupState
-import tensorflow as tf
 
-
-
-class rewards:
-    def __init__(self):
-        self.count = [0,0]
-        self.curr_soup_check = None 
-
-    def shaped_reward(self,prev_state, next_state,agent_idx,n_steps):
-        reward = 0
-        p_play = prev_state["overcooked_state"].players[agent_idx]
-        n_play = next_state["overcooked_state"].players[agent_idx]
-
-        #p_state = prev_state["overcooked_state"]
-        #n_state = next_state["overcooked_state"]
-
-        #reward shaping
-
-        # + 1 onion = 0.5
-        # + 1 onion in the pot = 1
-        # soup is ready = 2
-        # pick up the ready soup = 1
-        # delivering the soup (default) = 20
-        # idle = 0
-
-        #if not p_play.has_object() and n_play.has_object():
-        #    if n_play.get_object().name == "onion":
-        #        reward += 0.05
-                #print("DEBUG = > PRESO UNA CIPOLLA ALLO STEP: ", n_steps)
-
-        #if not p_play.has_object() and n_play.has_object():
-        #    if n_play.get_object().name == "dish":
-        #        reward += 0.05
-
-        #def check_soup_taken_simple(prev_state, curr_state):
-        #    """
-        #    Versione semplice: se una zuppa pronta scompare, è stata presa
-        #    """
-        #    prev_soups = {pos: obj for pos, obj in prev_state.objects.items() if obj.name == "soup"}
-        #    curr_soups = {pos: obj for pos, obj in curr_state.objects.items() if obj.name == "soup"}
-            
-        #    # Controlla ogni posizione che aveva una zuppa nello stato precedente
-        #    for pos in prev_soups:
-        #        prev_soup = prev_soups[pos]
-                
-                # Se la zuppa era pronta e ora non c'è più nulla in quella posizione
-        #        if (hasattr(prev_soup, '_cooking_tick') and 
-        #            prev_soup._cooking_tick >= 20 and 
-        #            pos not in curr_soups):
-                    
-        #            print(f"DEBUG => Zuppa pronta scomparsa dalla posizione {pos} - PRESA!")
-        #            return True
-            
-        #    return False
-
-        # Utilizzo:
-        #result = check_soup_taken_simple(p_state, n_state)
-        #if result:
-        #    reward += 0.5
-        #    print(f"DEBUG => ZUPPA PRESA CONFERMATA ALLO STEP: {n_steps}")
-
-        
-        # Idle penalty
-        if (p_play.position == n_play.position and
-            ((not p_play.has_object() and not n_play.has_object()) or 
-            (p_play.has_object() and n_play.has_object() and 
-            p_play.get_object().name == n_play.get_object().name))):
-            reward -= 0.001
-
-        #soup is ready
-
-        #def soup_ready(state):
-        #    flag = 0
-        #    for state_obj in state.objects.values():
-                #for obj in state_obj:
-                    #print("DEBUG => oggetti ->", state_obj.name)
-        #            if isinstance(state_obj, SoupState):
-        #                if state_obj.is_ready:
-        #                    flag += 1
-
-        #    return flag
-    
-
-        #p_flag = soup_ready(p_state)
-        #n_flag = soup_ready(n_state)
-
-        #if n_flag > p_flag:
-        #    reward += 0.5
-        #    print("DEBUG = > ZUPPA PRONTA")
-
-        #def plus_one_onion(state):
-        #    ingr = 0
-        #    for state_obj in state.objects.values():
-               #for obj in state_obj:
-        #            if isinstance(state_obj, SoupState):
-        #                ingr += len(state_obj.ingredients)
-
-
-         #   return ingr
-        
-        #p_ingr = plus_one_onion(p_state)
-        #n_ingr = plus_one_onion(n_state)
-
-
-        #if n_ingr > p_ingr:
-        #    reward += 0.2
-            #print("DEBUG = > CIPOLLA INSERITA NELLA ZUPPA ALLO STEP: ", n_steps)
-
-
-        return reward
 
 
 
 if __name__ == '__main__':
-    # Setup dell'ambiente corretto come da documentazione
     print("Inizializzazione dell'ambiente...")
     layout_name = "cramped_room"
     print(f"Layout scelto: {layout_name}")
-    shape_rewards = rewards()
     LOAD_MODELS = True 
     N_SAVE = 100
 
-    # Creazione dell'ambiente seguendo esattamente il pattern documentato
     base_mdp = OvercookedGridworld.from_layout_name(layout_name,old_dynamics = True)
     base_env = OvercookedEnv.from_mdp(base_mdp, info_level=0, horizon=400)
     env = Overcooked(base_env=base_env, featurize_fn=base_env.featurize_state_mdp)
     grid = base_mdp.terrain_mtx
     shared_critic = criticNet(input_dim=env.observation_space.shape)
 
-
     N = 1024
     batch_size = 128
-    n_epochs = 10
-    alpha = 2e-4
+    n_epochs = 6
+    alpha = 5e-4
     shared_train = critic_Train(env.observation_space.shape,shared_critic,n_epochs,learning_rate=alpha,gamma = 0.99, GAElambda = 0.95, critic_smoother=0.5, eps = 0.2)
     agent0 = Agent(shared_critic,action_dim=env.action_space.n, batch_size=batch_size, 
                     learning_rate=alpha, epochs=n_epochs, 
@@ -192,7 +74,6 @@ if __name__ == '__main__':
         tot_shp0 = 0
         tot_shp1 = 0
         while not done:
-            #print("\nDEBUG -> ", observation)
             #img_path = os.path.join("imgs", f"frame_{n_steps}.png")
 
             action0, old_prob0 = agent0.generate_action(observation0)
@@ -203,16 +84,17 @@ if __name__ == '__main__':
             joint_action = (action0, action1)
             observation_, reward, done, info = env.step(joint_action)
             state_to_render = env.render()
+            grid = base_mdp.terrain_mtx
+
             #visualizer.display_rendered_state(observation_["overcooked_state"],grid = grid,img_path=img_path)
-            #print("DEBUG -> , " , done)
             n_steps += 1
 
-            shp_reward0 = shape_rewards.shaped_reward(observation, observation_, 0, n_steps)
-            shp_reward1 = shape_rewards.shaped_reward(observation, observation_, 1,n_steps)
+            shp_reward0 = info["shaped_r_by_agent"][0]
+            shp_reward1 = info["shaped_r_by_agent"][1]
             tot_shp0 += shp_reward0
             tot_shp1 += shp_reward1
 
-            score += reward #DA CAMBIARE -> reward vero è solo +20 quando consegna la zuppa
+            score += reward 
             agent0.remember(observation0, action0, (reward+shp_reward0),S_value0,old_prob0,done)
             agent1.remember(observation1, action1, (reward+shp_reward1),S_value1,old_prob1,done)
             if n_steps % N == 0:
@@ -224,9 +106,9 @@ if __name__ == '__main__':
                     agent1.remember_nextS(S_value_next1)
 
                 else:
-                    agent0.remember_nextS(0)  # Terminal state
+                    agent0.remember_nextS(0) 
                     agent1.remember_nextS(0)
-                #parte di shared
+                
 
                 GAE_adv0, GAE_adv1 = shared_train.train_critic(agent0.memory,agent1.memory)
 
@@ -254,6 +136,5 @@ if __name__ == '__main__':
             shared_train.save_models(i,score)
     x = [i+1 for i in range(len(score_history))]
 
-    #plot_learning_curve(x, score_history, figure_file)
 
 

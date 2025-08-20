@@ -1,17 +1,16 @@
 import numpy as np
-import random
 from overcooked_ai_py.mdp.overcooked_env import OvercookedEnv, Overcooked
 from overcooked_ai_py.mdp.overcooked_mdp import OvercookedGridworld
 from overcooked_ai_py.visualization.state_visualizer import StateVisualizer
-import time
 from PPO_clip import Agent
-import os
 from overcooked_ai_py.mdp.overcooked_mdp import SoupState
+
+
 
 
 def shaped_reward(prev_state, next_state,agent_idx,n_steps):
     reward = 0
-    decay_steps = 400000
+    #decay_steps = 400000
     p_play = prev_state["overcooked_state"].players[agent_idx]
     n_play = next_state["overcooked_state"].players[agent_idx]
 
@@ -19,13 +18,6 @@ def shaped_reward(prev_state, next_state,agent_idx,n_steps):
     n_state = next_state["overcooked_state"]
 
     #reward shaping
-
-    # + 1 onion = 0.5
-    # + 1 onion in the pot = 1
-    # soup is ready = 2
-    # pick up the ready soup = 1
-    # delivering the soup (default) = 20
-    # idle = 0
 
     if not p_play.has_object() and n_play.has_object():
         if n_play.get_object().name == "onion":
@@ -35,34 +27,29 @@ def shaped_reward(prev_state, next_state,agent_idx,n_steps):
     if not p_play.has_object() and n_play.has_object():
         if n_play.get_object().name == "dish":
             reward += 0.1
-            #print("DEBUG = > PRESO LA ZUPPA ALLO STEP: ", n_steps)
+            #print("DEBUG = > PRESO un piatto ALLO STEP: ", n_steps)
         
     def check_soup_taken_simple(prev_state, curr_state):
-            """
-            Versione semplice: se una zuppa pronta scompare, è stata presa
-            """
             prev_soups = {pos: obj for pos, obj in prev_state.objects.items() if obj.name == "soup"}
             curr_soups = {pos: obj for pos, obj in curr_state.objects.items() if obj.name == "soup"}
             
-            # Controlla ogni posizione che aveva una zuppa nello stato precedente
+            
             for pos in prev_soups:
                 prev_soup = prev_soups[pos]
                 
-                # Se la zuppa era pronta e ora non c'è più nulla in quella posizione
                 if (hasattr(prev_soup, '_cooking_tick') and 
                     prev_soup._cooking_tick >= 20 and 
                     pos not in curr_soups):
                     
-                    print(f"DEBUG => Zuppa pronta scomparsa dalla posizione {pos} - PRESA!")
+                    #print(f"DEBUG => Zuppa pronta scomparsa dalla posizione {pos} - PRESA!")
                     return True
             
             return False
 
-    #    # Utilizzo:
     result = check_soup_taken_simple(p_state, n_state)
     if result:
             reward += 0.4
-            print(f"DEBUG => ZUPPA PRESA CONFERMATA ALLO STEP: {n_steps}")
+            #print(f"DEBUG => ZUPPA PRESA CONFERMATA ALLO STEP: {n_steps}")
 
 
     # Idle penalty
@@ -73,7 +60,6 @@ def shaped_reward(prev_state, next_state,agent_idx,n_steps):
         reward -= 0.001
 
     #soup is ready
-
     def soup_ready(state):
         flag = 0
         for state_obj in state.objects.values():
@@ -91,7 +77,7 @@ def shaped_reward(prev_state, next_state,agent_idx,n_steps):
 
     if n_flag > p_flag:
         reward += 0.3
-        print("DEBUG = > ZUPPA PRONTA ALLO STEP: ", n_steps)
+        #print("DEBUG = > ZUPPA PRONTA ALLO STEP: ", n_steps)
 
     def plus_one_onion(state):
         ingr = 0
@@ -112,26 +98,24 @@ def shaped_reward(prev_state, next_state,agent_idx,n_steps):
         #print("DEBUG = > CIPOLLA INSERITA NELLA ZUPPA ALLO STEP: ", n_steps)
 
     
-    shaping_scale = max(1.0 - n_steps / decay_steps, 0.0)
-    return shaping_scale * reward
+    #shaping_scale = max(1.0 - n_steps / decay_steps, 0.0)
+    return reward
 
 
 
 if __name__ == '__main__':
-    # Setup dell'ambiente corretto come da documentazione
+
     print("Inizializzazione dell'ambiente...")
     layout_name = "cramped_room"
     print(f"Layout scelto: {layout_name}")
 
-    # Creazione dell'ambiente seguendo esattamente il pattern documentato
     base_mdp = OvercookedGridworld.from_layout_name(layout_name,old_dynamics = True)
     base_env = OvercookedEnv.from_mdp(base_mdp, info_level=0, horizon=400)
     env = Overcooked(base_env=base_env, featurize_fn=base_env.featurize_state_mdp)
     grid = base_mdp.terrain_mtx
 
-
-    N = 4096
-    batch_size = 512
+    N = 1024
+    batch_size = 128
     n_epochs = 6
     alpha = 5e-4
     agent0 = Agent(action_dim=env.action_space.n, batch_size=batch_size, 
@@ -157,12 +141,10 @@ if __name__ == '__main__':
     if LOAD_MODELS:
         print("\nCARICAMENTO MODELLI")
         
-        
-        # Carica agenti
         agent0_info = agent0.load_models()
         agent1_info = agent1.load_models()
         
-        # Determina da quale episodio iniziare
+
         if agent0_info and agent1_info:
             start_episode = max(
                 agent0_info.get('episode', 0),
@@ -174,6 +156,7 @@ if __name__ == '__main__':
 
     for i in range(n_games):
         observation = env.reset()
+
         observation0 = observation["both_agent_obs"][0]
         observation1 = observation["both_agent_obs"][1]
         done = False
@@ -181,7 +164,6 @@ if __name__ == '__main__':
         tot_shp0 = 0
         tot_shp1 = 0
         while not done:
-            #print("\nDEBUG -> ", observation)
             #img_path = os.path.join("imgs", f"frame_{n_steps}.png")
 
             action0, old_prob0 = agent0.generate_action(observation0)
@@ -191,9 +173,7 @@ if __name__ == '__main__':
 
             joint_action = (action0, action1)
             observation_, reward, done, info = env.step(joint_action)
-            #state_to_render = env.render()
             #visualizer.display_rendered_state(observation_["overcooked_state"],grid = grid,img_path=img_path)
-            #print("DEBUG -> , " , done)
             n_steps += 1
 
             shp_reward0 = shaped_reward(observation, observation_, 0, n_steps)
@@ -201,8 +181,8 @@ if __name__ == '__main__':
             tot_shp0 += shp_reward0
             tot_shp1 += shp_reward1
 
-            score += reward #DA CAMBIARE -> reward vero è solo +20 quando consegna la zuppa
-            agent0.remember(observation0, action0, (reward+shp_reward0),S_value0,old_prob0,done)
+            score += reward 
+            agent0.remember(observation0, action0, (reward + shp_reward0),S_value0,old_prob0,done)
             agent1.remember(observation1, action1, (reward + shp_reward1),S_value1,old_prob1,done)
             if n_steps % N == 0:
                 S_value_next0 = agent0.predict_value(observation_["both_agent_obs"][0])
@@ -231,6 +211,5 @@ if __name__ == '__main__':
             agent1.save_models(i,score)
 
     x = [i+1 for i in range(len(score_history))]
-    #plot_learning_curve(x, score_history, figure_file)
 
 

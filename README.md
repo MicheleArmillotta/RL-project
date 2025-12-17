@@ -34,3 +34,9 @@ The training scripts demonstrate the application of the PPO algorithms in the Ov
 
 - **`prova_shared_variant.py`**  
   Training implementation using the shared critic PPO variant with curriculum learning across different layouts.
+
+
+  
+The detailed report is available here:  
+[Full technical report](https://github.com/MicheleArmillotta/RL-project/blob/main/AAAS_report_FINAL.pdf)
+
